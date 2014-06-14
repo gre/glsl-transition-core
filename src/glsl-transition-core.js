@@ -121,21 +121,8 @@ function GlslTransitionCore (canvas, opts) {
    * createTransition(glslSource, [uniforms])
    * Creates a GLSL Transition for the current canvas context.
    */
-  function createTransition (glsl, defaultUniforms) {
-    if (!defaultUniforms) defaultUniforms = {};
-    if (arguments.length < 1 || arguments.length > 2 || typeof glsl !== "string")
-      throw new Error("Bad arguments. usage: T(glsl [, options])");
-
+  function createTransition (glsl) {
     var glslTypes = glslExports(glsl);
-
-    for (var name in defaultUniforms) {
-      if (name === RESOLUTION_UNIFORM) {
-        throw new Error("The '"+name+"' uniform is reserved, you must not use it.");
-      }
-      if (!(name in glslTypes.uniforms)) {
-        throw new Error("uniform '"+name+"': This uniform does not exist in your GLSL code.");
-      }
-    }
 
     // Second level variables
     var shader, textureUnits, textures;
