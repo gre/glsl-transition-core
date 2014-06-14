@@ -87,7 +87,14 @@ function GlslTransitionCore (canvas, opts) {
   function syncTexture (texture, image) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
     if (image) {
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      if (typeof image === "function") {
+        // This allows everything. It is a workaround to define non Image/Canvas/Video textures like using Array.
+        // We may use gl-texture2d in the future but it brings more deps to the project
+        image(gl);
+      }
+      else {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      }
     }
     else {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
