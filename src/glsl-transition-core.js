@@ -1,0 +1,283 @@
+var createShader = require("gl-shader-core");
+var glslExports = require("glsl-exports");
+
+var VERTEX_SHADER = 'attribute vec2 position; void main() { gl_Position = vec4(2.0*position-1.0, 0.0, 1.0);}';
+var VERTEX_TYPES = glslExports(VERTEX_SHADER);
+var PROGRESS_UNIFORM = "progress";
+var RESOLUTION_UNIFORM = "resolution";
+
+var CONTEXTS = ["webgl", "experimental-webgl"];
+function getWebGLContext (canvas, options) {
+  if (!canvas.getContext) return;
+  for (var i = 0; i < CONTEXTS.length; ++i) {
+    try {
+      var ctx = canvas.getContext(CONTEXTS[i], options||{});
+      if (ctx) return ctx;
+    } catch(e) {
+    }
+  }
+}
+
+function extend (obj) {
+  for(var a=1; a<arguments.length; ++a) {
+    var source = arguments[a];
+    for (var prop in source)
+      if (source[prop] !== void 0) obj[prop] = source[prop];
+  }
+  return obj;
+}
+
+/**
+ * API:
+ * GlslTransitionCore(canvas)(glslSource, options) => Object with functions.
+ */
+
+/**
+ * ~~~ First Call in the API
+ * GlslTransitionCore(canvas)
+ * Creates a Transitions context with a canvas.
+ */
+function GlslTransitionCore (canvas, opts) {
+  if (arguments.length !== 1 || !("getContext" in canvas))
+    throw new Error("Bad arguments. usage: GlslTransitionCore(canvas)");
+
+  var contextAttributes = extend({}, opts && opts.contextAttributes || {}, GlslTransitionCore.defaults.contextAttributes);
+
+  // First level variables
+  var gl, currentShader, transitions;
+  var userContextLostWatchers = [];
+
+  function init () {
+    transitions = [];
+    gl = getWebGLContext(canvas, contextAttributes);
+    canvas.addEventListener("webglcontextlost", onContextLost, false);
+    canvas.addEventListener("webglcontextrestored", onContextRestored, false);
+  }
+
+  function onContextLost (e) {
+    e.preventDefault();
+    gl = null;
+    for (var i=0; i<transitions.length; ++i) {
+      transitions[i].onContextLost(e);
+    }
+  }
+
+  function onContextRestored (e) {
+    gl = getWebGLContext(canvas, contextAttributes);
+    var i;
+    for (i=0; i<userContextLostWatchers.length; ++i) {
+      userContextLostWatchers[i](e);
+    }
+    for (i=0; i<transitions.length; ++i) {
+      transitions[i].onContextRestored(e);
+    }
+  }
+
+  function createTexture () {
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return texture;
+  }
+
+  function syncTexture (texture, image) {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    if (image) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    }
+    else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
+  }
+
+  function loadTransitionShader (glsl, glslTypes) {
+    var uniformsByName = extend({}, glslTypes.uniforms, VERTEX_TYPES.uniforms);
+    var attributesByName = extend({}, glslTypes.attributes, VERTEX_TYPES.attributes);
+    var name;
+    var uniforms = [];
+    var attributes = [];
+    for (name in uniformsByName) {
+      uniforms.push({ name: name, type: uniformsByName[name] });
+    }
+    for (name in attributesByName) {
+      attributes.push({ name: name, type: attributesByName[name] });
+    }
+    var shader = createShader(gl, VERTEX_SHADER, glsl, uniforms, attributes);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    shader.attributes.position.pointer();
+    return shader;
+  }
+
+  function draw () {
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  /**
+   * ~~~ Second Call in the API
+   * createTransition(glslSource, [uniforms])
+   * Creates a GLSL Transition for the current canvas context.
+   */
+  function createTransition (glsl, defaultUniforms) {
+    if (!defaultUniforms) defaultUniforms = {};
+    if (arguments.length < 1 || arguments.length > 2 || typeof glsl !== "string")
+      throw new Error("Bad arguments. usage: T(glsl [, options])");
+
+    var glslTypes = glslExports(glsl);
+
+    for (var name in defaultUniforms) {
+      if (name === RESOLUTION_UNIFORM) {
+        throw new Error("The '"+name+"' uniform is reserved, you must not use it.");
+      }
+      if (!(name in glslTypes.uniforms)) {
+        throw new Error("uniform '"+name+"': This uniform does not exist in your GLSL code.");
+      }
+    }
+
+    // Second level variables
+    var shader, textureUnits, textures;
+
+    function load () {
+      if (!gl) return;
+      shader = loadTransitionShader(glsl, glslTypes);
+      textureUnits = {};
+      textures = {};
+      var i = 0;
+      for (var name in glslTypes.uniforms) {
+        var t = glslTypes.uniforms[name];
+        if (t === "sampler2D") {
+          gl.activeTexture(gl.TEXTURE0 + i);
+          textureUnits[name] = i;
+          textures[name] = createTexture();
+          i ++;
+        }
+      }
+    }
+
+    function onContextLost () {
+      shader = null;
+    }
+
+    function onContextRestored () {
+      load();
+    }
+
+    function syncViewport () {
+      var w = canvas.width, h = canvas.height;
+      gl.viewport(0, 0, w, h);
+      if (currentShader) {
+        currentShader.uniforms[RESOLUTION_UNIFORM] = [ w, h ];
+      }
+      var x1 = 0, x2 = w, y1 = 0, y2 = h;
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        x1, y1,
+        x2, y1,
+        x1, y2,
+        x1, y2,
+        x2, y1,
+        x2, y2
+      ]), gl.STATIC_DRAW);
+    }
+
+    function setProgress (p) {
+      shader.uniforms[PROGRESS_UNIFORM] = p;
+    }
+
+    function setUniform (name, value) {
+      if (name in textureUnits) {
+        var i = textureUnits[name];
+        var texture = textures[name];
+        gl.activeTexture(gl.TEXTURE0 + i);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        syncTexture(texture, value);
+        shader.uniforms[name] = i;
+      }
+      else {
+        shader.uniforms[name] = value;
+      }
+    }
+
+    function reset () {
+      var hasChanged = false;
+      if (!shader) {
+        load(); // Possibly shader was not loaded.
+        hasChanged = true;
+      }
+      if (currentShader !== shader) {
+        currentShader = shader;
+        shader.bind();
+        hasChanged = true;
+      }
+      syncViewport();
+      return hasChanged;
+    }
+
+    function destroy () {
+      if (currentShader === shader) {
+        currentShader = null;
+      }
+      shader.dispose();
+    }
+
+    function getUniforms () {
+      return extend({}, glslTypes.uniforms);
+    }
+
+    var transition = {
+      load: function () {
+        // Possibly shader was not loaded.
+        if (!shader) load();
+      },
+      bind: function () {
+        // If shader has changed, we need to bind it
+        if (currentShader !== shader) {
+          currentShader = shader;
+          shader.bind();
+        }
+      },
+      isCurrentTransition: function () {
+        return currentShader === shader;
+      },
+      onContextLost: onContextLost,
+      onContextRestored: onContextRestored,
+      syncViewport: syncViewport,
+      setProgress: setProgress,
+      setUniform: setUniform,
+      reset: reset,
+      draw: draw,
+      destroy: destroy,
+      getUniforms: getUniforms
+    };
+
+    transitions.push(transition);
+
+    return transition;
+  }
+
+  createTransition.onContextLost = function (f) {
+    userContextLostWatchers.push(f);
+  };
+
+  createTransition.getGL = function () {
+    return gl;
+  };
+
+  // Finally init the GlslTransitionCore context
+  init();
+
+  return createTransition;
+}
+
+GlslTransitionCore.defaults = {
+  contextAttributes: { preserveDrawingBuffer: true }
+};
+
+GlslTransitionCore.isSupported = function () {
+  var c = document.createElement("canvas");
+  return !!getWebGLContext(c);
+};
+
+module.exports = GlslTransitionCore;
