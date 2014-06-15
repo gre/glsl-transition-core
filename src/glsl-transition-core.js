@@ -221,6 +221,9 @@ function GlslTransitionCore (canvas, opts) {
     }
 
     var transition = {
+      getGL: function () {
+        return gl;
+      },
       load: function () {
         // Possibly shader was not loaded.
         if (!shader) load();
