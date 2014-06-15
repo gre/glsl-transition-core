@@ -163,7 +163,7 @@ function GlslTransitionCore (canvas, opts) {
       var w = canvas.width, h = canvas.height;
       gl.viewport(0, 0, w, h);
       if (currentShader) {
-        currentShader.uniforms[RESOLUTION_UNIFORM] = [ w, h ];
+        currentShader.uniforms[RESOLUTION_UNIFORM] = new Float32Array([ w, h ]);
       }
       var x1 = 0, x2 = w, y1 = 0, y2 = h;
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
