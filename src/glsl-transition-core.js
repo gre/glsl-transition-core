@@ -213,7 +213,10 @@ function GlslTransitionCore (canvas, opts) {
       if (currentShader === shader) {
         currentShader = null;
       }
-      shader.dispose();
+      if (shader) {
+        shader.dispose();
+        shader = null;
+      }
     }
 
     function getUniforms () {
