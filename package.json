@@ -1,6 +1,6 @@
 {
   "name": "glsl-transition-core",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Core GLSL Transitions engine for glsl-transition",
   "keywords": [
     "glsl-transition",
