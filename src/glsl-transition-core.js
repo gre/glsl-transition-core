@@ -85,8 +85,8 @@ function GlslTransitionCore (canvas, opts) {
 
   function syncTexture (texture, image) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     if (image) {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, (""+image.nodeName).toLowerCase()!=="canvas"); // This is an hack... I should never have used UNPACK_FLIP_Y_WEBGL...
       if (typeof image === "function") {
         // This allows everything. It is a workaround to define non Image/Canvas/Video textures like using Array.
         // We may use gl-texture2d in the future but it brings more deps to the project
