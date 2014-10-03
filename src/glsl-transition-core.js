@@ -1,7 +1,7 @@
 var createShader = require("gl-shader-core");
 var glslExports = require("glsl-exports");
 
-var VERTEX_SHADER = 'attribute vec2 position; void main() { gl_Position = vec4(2.0*position-1.0, 0.0, 1.0);}';
+var VERTEX_SHADER = 'attribute vec2 p;varying vec2 texCoord;void main(){gl_Position=vec4(2.*p-1.,0.,1.);texCoord=p;}';
 var VERTEX_TYPES = glslExports(VERTEX_SHADER);
 var PROGRESS_UNIFORM = "progress";
 var RESOLUTION_UNIFORM = "resolution";
@@ -86,7 +86,6 @@ function GlslTransitionCore (canvas, opts) {
   function syncTexture (texture, image) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
     if (image) {
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       if (typeof image === "function") {
         // This allows everything. It is a workaround to define non Image/Canvas/Video textures like using Array.
         // We may use gl-texture2d in the future but it brings more deps to the project
@@ -115,7 +114,7 @@ function GlslTransitionCore (canvas, opts) {
     }
     var shader = createShader(gl, VERTEX_SHADER, glsl, uniforms, attributes);
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    shader.attributes.position.pointer();
+    shader.attributes.p.pointer();
     return shader;
   }
 
