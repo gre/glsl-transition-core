@@ -1,12 +1,12 @@
-var createShader = require("gl-shader-core");
+var createShader = require("gl-shader");
 var createTexture = require("gl-texture2d");
-var glslExports = require("glsl-exports");
 
 var VERTEX_SHADER = 'attribute vec2 position; void main() { gl_Position = vec4(2.0*position-1.0, 0.0, 1.0);}';
-var VERTEX_TYPES = glslExports(VERTEX_SHADER);
 var PROGRESS_UNIFORM = "progress";
 var RESOLUTION_UNIFORM = "resolution";
 
+
+// TODO library ?
 var CONTEXTS = ["webgl", "experimental-webgl"];
 function getWebGLContext (canvas, options) {
   if (!canvas.getContext) return;
@@ -19,6 +19,7 @@ function getWebGLContext (canvas, options) {
   }
 }
 
+// TODO externalize as a library
 function extend (obj) {
   for(var a=1; a<arguments.length; ++a) {
     var source = arguments[a];
@@ -74,24 +75,6 @@ function GlslTransitionCore (canvas, opts) {
     }
   }
 
-  function loadTransitionShader (glsl, glslTypes) {
-    var uniformsByName = extend({}, glslTypes.uniforms, VERTEX_TYPES.uniforms);
-    var attributesByName = extend({}, glslTypes.attributes, VERTEX_TYPES.attributes);
-    var name;
-    var uniforms = [];
-    var attributes = [];
-    for (name in uniformsByName) {
-      uniforms.push({ name: name, type: uniformsByName[name] });
-    }
-    for (name in attributesByName) {
-      attributes.push({ name: name, type: attributesByName[name] });
-    }
-    var shader = createShader(gl, VERTEX_SHADER, glsl, uniforms, attributes);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    shader.attributes.position.pointer();
-    return shader;
-  }
-
   function draw () {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -102,19 +85,19 @@ function GlslTransitionCore (canvas, opts) {
    * Creates a GLSL Transition for the current canvas context.
    */
   function createTransition (glsl) {
-    var glslTypes = glslExports(glsl);
-
     // Second level variables
-    var shader, textureUnits, textures;
+    var buffer, shader, textureUnits, textures;
 
     function load () {
       if (!gl) return;
-      shader = loadTransitionShader(glsl, glslTypes);
+      buffer = gl.createBuffer();
+      shader = createShader(gl, VERTEX_SHADER, glsl);
+      
       textureUnits = {};
       textures = {};
       var i = 0;
-      for (var name in glslTypes.uniforms) {
-        var t = glslTypes.uniforms[name];
+      for (var name in shader.types.uniforms) {
+        var t = shader.types.uniforms[name];
         if (t === "sampler2D") {
           textureUnits[name] = i;
           i ++;
@@ -137,6 +120,8 @@ function GlslTransitionCore (canvas, opts) {
         currentShader.uniforms[RESOLUTION_UNIFORM] = new Float32Array([ w, h ]);
       }
       var x1 = 0, x2 = w, y1 = 0, y2 = h;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      shader.attributes.position.pointer();
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
         x1, y1,
         x2, y1,
@@ -207,7 +192,8 @@ function GlslTransitionCore (canvas, opts) {
     }
 
     function getUniforms () {
-      return extend({}, glslTypes.uniforms);
+      if (!shader) load();
+      return extend({}, shader.types.uniforms);
     }
 
     var transition = {
@@ -262,6 +248,7 @@ GlslTransitionCore.defaults = {
   contextAttributes: { preserveDrawingBuffer: true }
 };
 
+// TODO: remove in favor of a library?
 GlslTransitionCore.isSupported = function () {
   var c = document.createElement("canvas");
   return !!getWebGLContext(c);
