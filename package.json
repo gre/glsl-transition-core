@@ -19,6 +19,7 @@
   "license": "MIT",
   "dependencies": {
     "gl-shader-core": "2.1.0",
+    "gl-texture2d": "2.0.4",
     "glsl-exports": "0.0.0"
   },
   "devDependencies": {

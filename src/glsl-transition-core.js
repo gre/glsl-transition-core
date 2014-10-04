@@ -1,4 +1,5 @@
 var createShader = require("gl-shader-core");
+var createTexture = require("gl-texture2d");
 var glslExports = require("glsl-exports");
 
 var VERTEX_SHADER = 'attribute vec2 position; void main() { gl_Position = vec4(2.0*position-1.0, 0.0, 1.0);}';
@@ -73,6 +74,7 @@ function GlslTransitionCore (canvas, opts) {
     }
   }
 
+  /*
   function createTexture () {
     var texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -82,7 +84,9 @@ function GlslTransitionCore (canvas, opts) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return texture;
   }
+  */
 
+  /*
   function syncTexture (texture, image) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
     if (image) {
@@ -100,6 +104,7 @@ function GlslTransitionCore (canvas, opts) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     }
   }
+  */
 
   function loadTransitionShader (glsl, glslTypes) {
     var uniformsByName = extend({}, glslTypes.uniforms, VERTEX_TYPES.uniforms);
@@ -143,9 +148,9 @@ function GlslTransitionCore (canvas, opts) {
       for (var name in glslTypes.uniforms) {
         var t = glslTypes.uniforms[name];
         if (t === "sampler2D") {
-          gl.activeTexture(gl.TEXTURE0 + i);
+          //gl.activeTexture(gl.TEXTURE0 + i);
           textureUnits[name] = i;
-          textures[name] = createTexture();
+          //textures[name] = createTexture();
           i ++;
         }
       }
@@ -178,16 +183,36 @@ function GlslTransitionCore (canvas, opts) {
 
     function setProgress (p) {
       shader.uniforms[PROGRESS_UNIFORM] = p;
+      // console.log(Object.keys(shader.uniforms).map(function(key){ return key+": "+shader.uniforms[key]; }).join(" "));
     }
 
     function setUniform (name, value) {
       if (name in textureUnits) {
         var i = textureUnits[name];
+        gl.activeTexture(gl.TEXTURE0 + i);
+
+        var texture = textures[name];
+        // Destroy the previous texture
+        if (texture) texture.dispose();
+
+        if (value === null) {
+          // Texture is now a black texture
+          textures[name] = texture = createTexture(gl, 2, 2);
+        }
+        else {
+          // Create a new texture
+          textures[name] = texture = createTexture(gl, value);
+        }
+
+        shader.uniforms[name] = texture.bind(i);
+
+        /*
         var texture = textures[name];
         gl.activeTexture(gl.TEXTURE0 + i);
         gl.bindTexture(gl.TEXTURE_2D, texture);
         syncTexture(texture, value);
         shader.uniforms[name] = i;
+        */
       }
       else {
         shader.uniforms[name] = value;
@@ -214,6 +239,10 @@ function GlslTransitionCore (canvas, opts) {
         currentShader = null;
       }
       if (shader) {
+        for (var t in textures) {
+          textures[t].dispose();
+        }
+        textures = null;
         shader.dispose();
         shader = null;
       }
