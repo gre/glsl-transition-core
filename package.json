@@ -20,13 +20,5 @@
   "dependencies": {
     "gl-shader": "3.0.0",
     "gl-texture2d": "2.0.4"
-  },
-  "devDependencies": {
-    "grunt": "~0.4.1",
-    "grunt-cli": "~0.1.6",
-    "grunt-contrib-jshint": "~0.6.0",
-    "grunt-contrib-watch": "~0.4.4",
-    "matchdep": "~0.1.2",
-    "grunt-browserify": "1.3.0"
   }
 }
