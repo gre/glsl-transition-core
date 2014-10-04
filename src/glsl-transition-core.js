@@ -5,8 +5,6 @@ var VERTEX_SHADER = 'attribute vec2 position; void main() { gl_Position = vec4(2
 var PROGRESS_UNIFORM = "progress";
 var RESOLUTION_UNIFORM = "resolution";
 
-
-// TODO library ?
 var CONTEXTS = ["webgl", "experimental-webgl"];
 function getWebGLContext (canvas, options) {
   if (!canvas.getContext) return;
@@ -19,7 +17,6 @@ function getWebGLContext (canvas, options) {
   }
 }
 
-// TODO externalize as a library
 function extend (obj) {
   for(var a=1; a<arguments.length; ++a) {
     var source = arguments[a];
@@ -115,11 +112,10 @@ function GlslTransitionCore (canvas, opts) {
 
     function syncViewport () {
       var w = canvas.width, h = canvas.height;
-      gl.viewport(0, 0, w, h);
+      var x1 = 0, x2 = w, y1 = 0, y2 = h;
       if (currentShader) {
         currentShader.uniforms[RESOLUTION_UNIFORM] = new Float32Array([ w, h ]);
       }
-      var x1 = 0, x2 = w, y1 = 0, y2 = h;
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       shader.attributes.position.pointer();
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -130,6 +126,7 @@ function GlslTransitionCore (canvas, opts) {
         x2, y1,
         x2, y2
       ]), gl.STATIC_DRAW);
+      gl.viewport(x1, y1, x2, y2);
     }
 
     function setProgress (p) {
@@ -248,7 +245,6 @@ GlslTransitionCore.defaults = {
   contextAttributes: { preserveDrawingBuffer: true }
 };
 
-// TODO: remove in favor of a library?
 GlslTransitionCore.isSupported = function () {
   var c = document.createElement("canvas");
   return !!getWebGLContext(c);
