@@ -241,10 +241,12 @@ function GlslTransitionCore (canvas, opts) {
   return createTransition;
 }
 
+// DEPRECATED
 GlslTransitionCore.defaults = {
   contextAttributes: { preserveDrawingBuffer: true }
 };
 
+// DEPRECATED
 GlslTransitionCore.isSupported = function () {
   var c = document.createElement("canvas");
   return !!getWebGLContext(c);
