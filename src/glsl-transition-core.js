@@ -103,6 +103,7 @@ function GlslTransitionCore (canvas, opts) {
     }
 
     function onContextLost () {
+      if (shader) shader.dispose();
       shader = null;
     }
 
@@ -205,6 +206,7 @@ function GlslTransitionCore (canvas, opts) {
         // If shader has changed, we need to bind it
         if (currentShader !== shader) {
           currentShader = shader;
+          if (!shader) load();
           shader.bind();
         }
       },
